@@ -9,6 +9,8 @@ pub struct NotificationConfig {
     pub enabled: bool,
     /// Icon for waiting state (e.g., "⏳")
     pub waiting_icon: String,
+    /// Icon for working state (e.g., "⚙")
+    pub working_icon: String,
     /// Icon for completed state (e.g., "✓")
     pub completed_icon: String,
 }
@@ -18,6 +20,7 @@ impl Default for NotificationConfig {
         Self {
             enabled: true,
             waiting_icon: "⏳".to_string(),
+            working_icon: "⚙".to_string(),
             completed_icon: "✅".to_string(),
         }
     }
@@ -29,6 +32,7 @@ impl NotificationConfig {
     /// Accepts flat key-value pairs:
     /// - `enabled`: "true" enables, anything else disables
     /// - `waiting_icon`: icon string (warns if > 4 chars)
+    /// - `working_icon`: icon string (warns if > 4 chars)
     /// - `completed_icon`: icon string (warns if > 4 chars)
     ///
     /// Invalid values fall back to defaults with warnings.
@@ -49,6 +53,17 @@ impl NotificationConfig {
                 );
             }
             result.waiting_icon = icon.clone();
+        }
+
+        // Parse working_icon
+        if let Some(icon) = config.get("working_icon") {
+            if icon.chars().count() > 4 {
+                eprintln!(
+                    "zellij-attention: Warning: working_icon '{}' is longer than 4 chars, may not display well",
+                    icon
+                );
+            }
+            result.working_icon = icon.clone();
         }
 
         // Parse completed_icon
@@ -75,6 +90,7 @@ mod tests {
         let config = NotificationConfig::default();
         assert!(config.enabled);
         assert_eq!(config.waiting_icon, "⏳");
+        assert_eq!(config.working_icon, "⚙");
         assert_eq!(config.completed_icon, "✅");
     }
 
@@ -92,11 +108,13 @@ mod tests {
         let mut config_map = BTreeMap::new();
         config_map.insert("enabled".to_string(), "true".to_string());
         config_map.insert("waiting_icon".to_string(), "!".to_string());
+        config_map.insert("working_icon".to_string(), "~".to_string());
         config_map.insert("completed_icon".to_string(), "*".to_string());
 
         let config = NotificationConfig::from_configuration(&config_map);
         assert!(config.enabled);
         assert_eq!(config.waiting_icon, "!");
+        assert_eq!(config.working_icon, "~");
         assert_eq!(config.completed_icon, "*");
     }
 

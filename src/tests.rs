@@ -44,6 +44,7 @@ fn add_notification(state: &mut State, pane_id: u32, ntype: NotificationType) {
 fn test_strip_icons() {
     let state = State::default();
     assert_eq!(state.strip_icons("Tab 1 ⏳"), "Tab 1");
+    assert_eq!(state.strip_icons("Tab 1 ⚙"), "Tab 1");
     assert_eq!(state.strip_icons("Tab 1 ✅"), "Tab 1");
     assert_eq!(state.strip_icons("Tab 1 ⏳ ⏳"), "Tab 1");
     assert_eq!(state.strip_icons("Tab 1"), "Tab 1");
@@ -54,6 +55,7 @@ fn test_strip_icons() {
 fn test_tab_name_has_icon() {
     let state = State::default();
     assert!(state.tab_name_has_icon("Tab 1 ⏳"));
+    assert!(state.tab_name_has_icon("Tab 1 ⚙"));
     assert!(state.tab_name_has_icon("Tab 1 ✅"));
     assert!(!state.tab_name_has_icon("Tab 1"));
     assert!(!state.tab_name_has_icon("⏳ Tab 1")); // icon not at end
@@ -81,18 +83,22 @@ fn test_clean_stale_skipped_when_panes_empty() {
 #[test]
 fn test_get_tab_notification_state_skips_plugin_panes() {
     let mut state = State::default();
-    state.panes = make_manifest(vec![
-        (0, vec![
-            make_pane(1, true, false),  // plugin pane
-            make_pane(2, false, true),  // terminal pane
-        ]),
-    ]);
+    state.panes = make_manifest(vec![(
+        0,
+        vec![
+            make_pane(1, true, false), // plugin pane
+            make_pane(2, false, true), // terminal pane
+        ],
+    )]);
     add_notification(&mut state, 1, NotificationType::Waiting);
 
     assert_eq!(state.get_tab_notification_state(0), None);
 
     add_notification(&mut state, 2, NotificationType::Completed);
-    assert_eq!(state.get_tab_notification_state(0), Some(NotificationType::Completed));
+    assert_eq!(
+        state.get_tab_notification_state(0),
+        Some(NotificationType::Completed)
+    );
 }
 
 #[test]
@@ -100,9 +106,7 @@ fn test_check_and_clear_focus() {
     let mut state = State::default();
     // Tab name must have icon for focus-clear to proceed (reorder safety)
     state.tabs = vec![make_tab(0, "Tab 1 ⏳", true)];
-    state.panes = make_manifest(vec![
-        (0, vec![make_pane(5, false, true)]),
-    ]);
+    state.panes = make_manifest(vec![(0, vec![make_pane(5, false, true)])]);
     add_notification(&mut state, 5, NotificationType::Waiting);
 
     assert!(state.check_and_clear_focus());
@@ -114,13 +118,57 @@ fn test_check_and_clear_focus_skips_without_icon() {
     let mut state = State::default();
     // Tab name has no icon — don't clear (protects against reorder race)
     state.tabs = vec![make_tab(0, "Tab 1", true)];
-    state.panes = make_manifest(vec![
-        (0, vec![make_pane(5, false, true)]),
-    ]);
+    state.panes = make_manifest(vec![(0, vec![make_pane(5, false, true)])]);
     add_notification(&mut state, 5, NotificationType::Waiting);
 
     assert!(!state.check_and_clear_focus());
     assert!(!state.notification_state.is_empty());
+}
+
+#[test]
+fn test_check_and_clear_focus_preserves_working_state() {
+    let mut state = State::default();
+    state.tabs = vec![make_tab(0, "Tab 1 ⚙", true)];
+    state.panes = make_manifest(vec![(0, vec![make_pane(5, false, true)])]);
+    add_notification(&mut state, 5, NotificationType::Working);
+
+    assert!(!state.check_and_clear_focus());
+    assert_eq!(
+        state.get_tab_notification_state(0),
+        Some(NotificationType::Working)
+    );
+}
+
+#[test]
+fn test_tab_notification_priority() {
+    let mut state = State::default();
+    state.tabs = vec![make_tab(0, "Tab 1", false)];
+    state.panes = make_manifest(vec![(
+        0,
+        vec![
+            make_pane(1, false, false),
+            make_pane(2, false, false),
+            make_pane(3, false, false),
+        ],
+    )]);
+
+    add_notification(&mut state, 1, NotificationType::Completed);
+    assert_eq!(
+        state.get_tab_notification_state(0),
+        Some(NotificationType::Completed)
+    );
+
+    add_notification(&mut state, 2, NotificationType::Working);
+    assert_eq!(
+        state.get_tab_notification_state(0),
+        Some(NotificationType::Working)
+    );
+
+    add_notification(&mut state, 3, NotificationType::Waiting);
+    assert_eq!(
+        state.get_tab_notification_state(0),
+        Some(NotificationType::Waiting)
+    );
 }
 
 #[test]
@@ -145,12 +193,12 @@ fn test_tab_reorder_skips_mismatched_tab_name() {
     state.panes = make_manifest(vec![
         (0, vec![make_pane(1, false, false)]),
         (1, vec![make_pane(4, false, false)]),
-        (2, vec![make_pane(2, false, false)]),  // Beta's pane at Tab #4's position
+        (2, vec![make_pane(2, false, false)]), // Beta's pane at Tab #4's position
         (3, vec![make_pane(3, false, true)]),
     ]);
     state.tabs = vec![
         make_tab(0, "Alpha", false),
-        make_tab(1, "Beta ⏳", false),  // stale tab data
+        make_tab(1, "Beta ⏳", false), // stale tab data
         make_tab(2, "Tab #4", true),
         make_tab(3, "Gamma", false),
     ];
@@ -167,7 +215,10 @@ fn test_tab_reorder_skips_mismatched_tab_name() {
     ];
 
     // Now tab name matches — notification should be found
-    assert_eq!(state.get_tab_notification_state(2), Some(NotificationType::Waiting));
+    assert_eq!(
+        state.get_tab_notification_state(2),
+        Some(NotificationType::Waiting)
+    );
 }
 
 #[test]
@@ -175,10 +226,7 @@ fn test_stale_icon_not_stripped_when_notification_expects_tab() {
     let mut state = State::default();
 
     // "Beta ⏳" at pos 1, notification expects tab "Beta"
-    state.tabs = vec![
-        make_tab(0, "Alpha", false),
-        make_tab(1, "Beta ⏳", false),
-    ];
+    state.tabs = vec![make_tab(0, "Alpha", false), make_tab(1, "Beta ⏳", false)];
     state.panes = make_manifest(vec![
         (0, vec![make_pane(1, false, false)]),
         (1, vec![make_pane(2, false, false)]),

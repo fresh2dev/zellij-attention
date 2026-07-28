@@ -14,9 +14,10 @@ https://github.com/user-attachments/assets/646effc0-1c24-413d-bef3-3d85591cd89b
 
 - **Tab-level notifications** — icons appended to tab names, visible at a glance
 - **Auto-clear on focus** — switch to the pane and the notification disappears
-- **Two notification states** — ⏳ waiting (needs input) and ✅ completed (task done)
+- **Three notification states** — ⏳ waiting (needs input), ⚙ working, and ✅ completed
 - **Memory-only state** — lightweight, no disk I/O; stale icons cleaned up automatically on restart
 - **Configurable icons** — use any character or emoji as notification indicator
+- **Hidden background pane** — suppresses itself even when launched or reloaded manually
 - **Standalone plugin** — works independently, no zjstatus or other status bar plugins needed
 
 ## Installation
@@ -37,6 +38,7 @@ load_plugins {
         // All options are optional — defaults shown
         enabled "true"
         waiting_icon "⏳"
+        working_icon "⚙"
         completed_icon "✅"
     }
 }
@@ -51,6 +53,9 @@ After installing, restart Zellij and test with a pipe command:
 ```bash
 # Send a waiting notification to the current pane
 zellij pipe --name "zellij-attention::waiting::$ZELLIJ_PANE_ID"
+
+# Send a working notification
+zellij pipe --name "zellij-attention::working::$ZELLIJ_PANE_ID"
 
 # Send a completed notification
 zellij pipe --name "zellij-attention::completed::$ZELLIJ_PANE_ID"
@@ -95,6 +100,56 @@ Automate notifications with [Claude Code hooks](https://docs.anthropic.com/en/do
 | `Notification` | ⏳ waiting   | Claude needs user input  |
 | `Stop`         | ✅ completed | Claude finished the task |
 
+## GitHub Copilot CLI Integration
+
+Add a user-level hook file under `~/.copilot/hooks/`:
+
+```json
+{
+  "version": 1,
+  "hooks": {
+    "userPromptSubmitted": [
+      {
+        "type": "command",
+        "bash": "[ -n \"${ZELLIJ_PANE_ID:-}\" ] && zellij pipe --name \"zellij-attention::working::$ZELLIJ_PANE_ID\" >/dev/null 2>&1 || true",
+        "timeoutSec": 2
+      }
+    ],
+    "notification": [
+      {
+        "type": "command",
+        "matcher": "permission_prompt|elicitation_dialog|agent_idle",
+        "bash": "[ -n \"${ZELLIJ_PANE_ID:-}\" ] && zellij pipe --name \"zellij-attention::waiting::$ZELLIJ_PANE_ID\" >/dev/null 2>&1 || true",
+        "timeoutSec": 2
+      },
+      {
+        "type": "command",
+        "matcher": "agent_completed",
+        "bash": "[ -n \"${ZELLIJ_PANE_ID:-}\" ] && zellij pipe --name \"zellij-attention::completed::$ZELLIJ_PANE_ID\" >/dev/null 2>&1 || true",
+        "timeoutSec": 2
+      }
+    ],
+    "agentStop": [
+      {
+        "type": "command",
+        "bash": "[ -n \"${ZELLIJ_PANE_ID:-}\" ] && zellij pipe --name \"zellij-attention::completed::$ZELLIJ_PANE_ID\" >/dev/null 2>&1 || true",
+        "timeoutSec": 2
+      }
+    ]
+  }
+}
+```
+
+| Hook                  | Notification | Meaning                   |
+| --------------------- | ------------ | ------------------------- |
+| `userPromptSubmitted` | ⚙ working    | Copilot started a turn    |
+| `notification`        | ⏳ waiting   | Copilot needs user input  |
+| `notification`        | ✅ completed | A background agent stopped |
+| `agentStop`           | ✅ completed | Copilot finished the turn |
+
+Copilot CLI loads hook configuration when it starts, so restart existing CLI processes after
+changing the hook file.
+
 ## Configuration
 
 All configuration is optional — the plugin works out of the box.
@@ -103,6 +158,7 @@ All configuration is optional — the plugin works out of the box.
 | ---------------- | -------- | ------------------------------- |
 | `enabled`        | `"true"` | Enable or disable notifications |
 | `waiting_icon`   | `"⏳"`   | Icon for waiting state          |
+| `working_icon`   | `"⚙"`    | Icon for working state          |
 | `completed_icon` | `"✅"`   | Icon for completed state        |
 
 Icons are appended to the end of tab names (e.g., `terminal ⏳`).
@@ -113,7 +169,7 @@ Icons are appended to the end of tab names (e.g., `terminal ⏳`).
 zellij-attention::EVENT_TYPE::PANE_ID
 ```
 
-- `EVENT_TYPE` — `waiting` or `completed` (case-insensitive)
+- `EVENT_TYPE` — `waiting`, `working`, or `completed` (case-insensitive)
 - `PANE_ID` — numeric pane ID from `$ZELLIJ_PANE_ID`
 
 > **Important:** Always use `--name` (broadcast pipe), never `--plugin` (targeted). Targeted pipes create new plugin instances instead of reaching existing ones.
@@ -126,6 +182,11 @@ For manual testing or integration with other tools:
 notify-waiting() {
     [ -z "$ZELLIJ_PANE_ID" ] && echo "Not in Zellij" && return 1
     zellij pipe --name "zellij-attention::waiting::$ZELLIJ_PANE_ID"
+}
+
+notify-working() {
+    [ -z "$ZELLIJ_PANE_ID" ] && echo "Not in Zellij" && return 1
+    zellij pipe --name "zellij-attention::working::$ZELLIJ_PANE_ID"
 }
 
 notify-completed() {
