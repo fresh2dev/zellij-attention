@@ -65,52 +65,10 @@ Switch to the tab — the icon should appear. Focus the pane to clear it.
 
 ## Claude Code Integration
 
-Automate notifications with [Claude Code hooks](https://docs.anthropic.com/en/docs/claude-code). Add to `~/.claude/settings.json`:
-
-```json
-{
-  "hooks": {
-    "Notification": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "zellij pipe --name \"zellij-attention::waiting::$ZELLIJ_PANE_ID\""
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ -z \"$ZELLIJ\" ] || zellij pipe --name \"zellij-attention::completed::$ZELLIJ_PANE_ID\"",
-            "timeout": 10
-          }
-        ]
-      }
-    ]
-  }
-}
+```bash
+claude plugin marketplace add fresh2dev/zellij-attention
+claude plugin install zellij-attention@zellij-attention
 ```
-
-| Hook               | Matcher              | Notification | Meaning                                   |
-| ------------------ | -------------------- | ------------ | ----------------------------------------- |
-| `UserPromptSubmit` |                      | 🟡 working   | You sent a prompt                         |
-| `PreToolUse`       | `*`                  | 🟡 working   | Claude is about to run a tool             |
-| `PostToolUse`      | `*`                  | 🟡 working   | Claude finished a tool; resumes after a prompt is approved |
-| `Notification`     | `permission_prompt`  | 🔴 waiting   | Claude needs permission to continue       |
-| `Notification`     | `elicitation_dialog` | 🔴 waiting   | Claude is asking you a question           |
-| `SubagentStop`     |                      | 🟡 working   | A subagent finished; the main agent continues |
-| `Stop`             |                      | 🟢 completed | Claude finished the task                  |
-
-Each command is guarded with `[ -z "$ZELLIJ" ] ||`, so the hooks do nothing when Claude Code runs outside Zellij.
-
-The `Notification` hooks use specific matchers so that only prompts that block on you turn the tab red. An empty matcher would also fire on the idle reminder.
-
-The plugin has no "clear" event, so a notification is cleared by focusing the pane.
 
 ## GitHub Copilot CLI Integration
 

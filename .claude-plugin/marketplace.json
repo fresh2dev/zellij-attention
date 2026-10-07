@@ -1,0 +1,11 @@
+{
+  "name": "zellij-attention",
+  "owner": { "name": "fresh2dev" },
+  "plugins": [
+    {
+      "name": "zellij-attention",
+      "source": "./",
+      "description": "Zellij tab notification icons for Claude Code: waiting, working, completed."
+    }
+  ]
+}
