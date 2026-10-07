@@ -2,6 +2,6 @@
   "name": "zellij-attention",
   "description": "Zellij tab notification icons for Claude Code: waiting, working, completed.",
   "author": { "name": "fresh2dev" },
-  "repository": "https://github.com/fresh2dev/zellij-attention",
+  "repository": "https://github.com/KiryuuLight/zellij-attention",
   "license": "MIT"
 }

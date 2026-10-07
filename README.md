@@ -66,7 +66,7 @@ Switch to the tab — the icon should appear. Focus the pane to clear it.
 ## Claude Code Integration
 
 ```bash
-claude plugin marketplace add fresh2dev/zellij-attention
+claude plugin marketplace add KiryuuLight/zellij-attention
 claude plugin install zellij-attention@zellij-attention
 ```
 
