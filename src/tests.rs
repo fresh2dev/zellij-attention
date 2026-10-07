@@ -43,10 +43,10 @@ fn add_notification(state: &mut State, pane_id: u32, ntype: NotificationType) {
 #[test]
 fn test_strip_icons() {
     let state = State::default();
-    assert_eq!(state.strip_icons("Tab 1 ⏳"), "Tab 1");
-    assert_eq!(state.strip_icons("Tab 1 ⚙"), "Tab 1");
-    assert_eq!(state.strip_icons("Tab 1 ✅"), "Tab 1");
-    assert_eq!(state.strip_icons("Tab 1 ⏳ ⏳"), "Tab 1");
+    assert_eq!(state.strip_icons("Tab 1 🔴"), "Tab 1");
+    assert_eq!(state.strip_icons("Tab 1 🟡"), "Tab 1");
+    assert_eq!(state.strip_icons("Tab 1 🟢"), "Tab 1");
+    assert_eq!(state.strip_icons("Tab 1 🔴 🔴"), "Tab 1");
     assert_eq!(state.strip_icons("Tab 1"), "Tab 1");
     assert_eq!(state.strip_icons(""), "");
 }
@@ -54,11 +54,11 @@ fn test_strip_icons() {
 #[test]
 fn test_tab_name_has_icon() {
     let state = State::default();
-    assert!(state.tab_name_has_icon("Tab 1 ⏳"));
-    assert!(state.tab_name_has_icon("Tab 1 ⚙"));
-    assert!(state.tab_name_has_icon("Tab 1 ✅"));
+    assert!(state.tab_name_has_icon("Tab 1 🔴"));
+    assert!(state.tab_name_has_icon("Tab 1 🟡"));
+    assert!(state.tab_name_has_icon("Tab 1 🟢"));
     assert!(!state.tab_name_has_icon("Tab 1"));
-    assert!(!state.tab_name_has_icon("⏳ Tab 1")); // icon not at end
+    assert!(!state.tab_name_has_icon("🔴 Tab 1")); // icon not at end
 }
 
 #[test]
@@ -105,7 +105,7 @@ fn test_get_tab_notification_state_skips_plugin_panes() {
 fn test_check_and_clear_focus() {
     let mut state = State::default();
     // Tab name must have icon for focus-clear to proceed (reorder safety)
-    state.tabs = vec![make_tab(0, "Tab 1 ⏳", true)];
+    state.tabs = vec![make_tab(0, "Tab 1 🔴", true)];
     state.panes = make_manifest(vec![(0, vec![make_pane(5, false, true)])]);
     add_notification(&mut state, 5, NotificationType::Waiting);
 
@@ -128,7 +128,7 @@ fn test_check_and_clear_focus_skips_without_icon() {
 #[test]
 fn test_check_and_clear_focus_preserves_working_state() {
     let mut state = State::default();
-    state.tabs = vec![make_tab(0, "Tab 1 ⚙", true)];
+    state.tabs = vec![make_tab(0, "Tab 1 🟡", true)];
     state.panes = make_manifest(vec![(0, vec![make_pane(5, false, true)])]);
     add_notification(&mut state, 5, NotificationType::Working);
 
@@ -178,7 +178,7 @@ fn test_tab_reorder_skips_mismatched_tab_name() {
     // Beta at pos 1 has notification, recorded as tab "Beta"
     state.tabs = vec![
         make_tab(0, "Alpha", false),
-        make_tab(1, "Beta ⏳", false),
+        make_tab(1, "Beta 🔴", false),
         make_tab(2, "Gamma", true),
     ];
     state.panes = make_manifest(vec![
@@ -198,7 +198,7 @@ fn test_tab_reorder_skips_mismatched_tab_name() {
     ]);
     state.tabs = vec![
         make_tab(0, "Alpha", false),
-        make_tab(1, "Beta ⏳", false), // stale tab data
+        make_tab(1, "Beta 🔴", false), // stale tab data
         make_tab(2, "Tab #4", true),
         make_tab(3, "Gamma", false),
     ];
@@ -210,7 +210,7 @@ fn test_tab_reorder_skips_mismatched_tab_name() {
     state.tabs = vec![
         make_tab(0, "Alpha", false),
         make_tab(1, "Tab #4", true),
-        make_tab(2, "Beta ⏳", false),
+        make_tab(2, "Beta 🔴", false),
         make_tab(3, "Gamma", false),
     ];
 
@@ -225,15 +225,15 @@ fn test_tab_reorder_skips_mismatched_tab_name() {
 fn test_stale_icon_not_stripped_when_notification_expects_tab() {
     let mut state = State::default();
 
-    // "Beta ⏳" at pos 1, notification expects tab "Beta"
-    state.tabs = vec![make_tab(0, "Alpha", false), make_tab(1, "Beta ⏳", false)];
+    // "Beta 🔴" at pos 1, notification expects tab "Beta"
+    state.tabs = vec![make_tab(0, "Alpha", false), make_tab(1, "Beta 🔴", false)];
     state.panes = make_manifest(vec![
         (0, vec![make_pane(1, false, false)]),
         (1, vec![make_pane(2, false, false)]),
     ]);
     state.notified_tab_names.insert(2, "Beta".to_string());
 
-    // "Beta ⏳" has icon but notification expects "Beta" — don't strip
-    let base = state.strip_icons("Beta ⏳");
+    // "Beta 🔴" has icon but notification expects "Beta" — don't strip
+    let base = state.strip_icons("Beta 🔴");
     assert!(state.notified_tab_names.values().any(|name| name == &base));
 }

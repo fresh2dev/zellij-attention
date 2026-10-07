@@ -6,7 +6,7 @@ Know which Zellij tab needs your attention — without checking each one.
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
 </p>
 
-A standalone Zellij WASM plugin that adds notification icons directly to tab names. Works with both the default Zellij tab bar and [zjstatus](https://github.com/dj95/zjstatus). When an external process (like Claude Code) needs your attention, the tab is renamed with an indicator — e.g., `terminal` becomes `terminal ⏳`. Focusing the pane clears the notification automatically.
+A standalone Zellij WASM plugin that adds notification icons directly to tab names. Works with both the default Zellij tab bar and [zjstatus](https://github.com/dj95/zjstatus). When an external process (like Claude Code) needs your attention, the tab is renamed with an indicator — e.g., `terminal` becomes `terminal 🔴`. Focusing the pane clears the notification automatically.
 
 https://github.com/user-attachments/assets/646effc0-1c24-413d-bef3-3d85591cd89b
 
@@ -14,7 +14,7 @@ https://github.com/user-attachments/assets/646effc0-1c24-413d-bef3-3d85591cd89b
 
 - **Tab-level notifications** — icons appended to tab names, visible at a glance
 - **Auto-clear on focus** — switch to the pane and the notification disappears
-- **Three notification states** — ⏳ waiting (needs input), ⚙ working, and ✅ completed
+- **Three notification states** — 🔴 waiting (needs input), 🟡 working, and 🟢 completed
 - **Memory-only state** — lightweight, no disk I/O; stale icons cleaned up automatically on restart
 - **Configurable icons** — use any character or emoji as notification indicator
 - **Hidden background pane** — suppresses itself even when launched or reloaded manually
@@ -37,9 +37,9 @@ load_plugins {
     "file:~/.config/zellij/plugins/zellij-attention.wasm" {
         // All options are optional — defaults shown
         enabled "true"
-        waiting_icon "⏳"
-        working_icon "⚙"
-        completed_icon "✅"
+        waiting_icon "🔴"
+        working_icon "🟡"
+        completed_icon "🟢"
     }
 }
 ```
@@ -86,7 +86,8 @@ Automate notifications with [Claude Code hooks](https://docs.anthropic.com/en/do
         "hooks": [
           {
             "type": "command",
-            "command": "zellij pipe --name \"zellij-attention::completed::$ZELLIJ_PANE_ID\""
+            "command": "[ -z \"$ZELLIJ\" ] || zellij pipe --name \"zellij-attention::completed::$ZELLIJ_PANE_ID\"",
+            "timeout": 10
           }
         ]
       }
@@ -95,10 +96,21 @@ Automate notifications with [Claude Code hooks](https://docs.anthropic.com/en/do
 }
 ```
 
-| Hook           | Notification | Meaning                  |
-| -------------- | ------------ | ------------------------ |
-| `Notification` | ⏳ waiting   | Claude needs user input  |
-| `Stop`         | ✅ completed | Claude finished the task |
+| Hook               | Matcher              | Notification | Meaning                                   |
+| ------------------ | -------------------- | ------------ | ----------------------------------------- |
+| `UserPromptSubmit` |                      | 🟡 working   | You sent a prompt                         |
+| `PreToolUse`       | `*`                  | 🟡 working   | Claude is about to run a tool             |
+| `PostToolUse`      | `*`                  | 🟡 working   | Claude finished a tool; resumes after a prompt is approved |
+| `Notification`     | `permission_prompt`  | 🔴 waiting   | Claude needs permission to continue       |
+| `Notification`     | `elicitation_dialog` | 🔴 waiting   | Claude is asking you a question           |
+| `SubagentStop`     |                      | 🟡 working   | A subagent finished; the main agent continues |
+| `Stop`             |                      | 🟢 completed | Claude finished the task                  |
+
+Each command is guarded with `[ -z "$ZELLIJ" ] ||`, so the hooks do nothing when Claude Code runs outside Zellij.
+
+The `Notification` hooks use specific matchers so that only prompts that block on you turn the tab red. An empty matcher would also fire on the idle reminder.
+
+The plugin has no "clear" event, so a notification is cleared by focusing the pane.
 
 ## GitHub Copilot CLI Integration
 
@@ -142,10 +154,10 @@ Add a user-level hook file under `~/.copilot/hooks/`:
 
 | Hook                  | Notification | Meaning                   |
 | --------------------- | ------------ | ------------------------- |
-| `userPromptSubmitted` | ⚙ working    | Copilot started a turn    |
-| `notification`        | ⏳ waiting   | Copilot needs user input  |
-| `notification`        | ✅ completed | A background agent stopped |
-| `agentStop`           | ✅ completed | Copilot finished the turn |
+| `userPromptSubmitted` | 🟡 working    | Copilot started a turn    |
+| `notification`        | 🔴 waiting   | Copilot needs user input  |
+| `notification`        | 🟢 completed | A background agent stopped |
+| `agentStop`           | 🟢 completed | Copilot finished the turn |
 
 Copilot CLI loads hook configuration when it starts, so restart existing CLI processes after
 changing the hook file.
@@ -157,11 +169,11 @@ All configuration is optional — the plugin works out of the box.
 | Option           | Default  | Description                     |
 | ---------------- | -------- | ------------------------------- |
 | `enabled`        | `"true"` | Enable or disable notifications |
-| `waiting_icon`   | `"⏳"`   | Icon for waiting state          |
-| `working_icon`   | `"⚙"`    | Icon for working state          |
-| `completed_icon` | `"✅"`   | Icon for completed state        |
+| `waiting_icon`   | `"🔴"`   | Icon for waiting state          |
+| `working_icon`   | `"🟡"`    | Icon for working state          |
+| `completed_icon` | `"🟢"`   | Icon for completed state        |
 
-Icons are appended to the end of tab names (e.g., `terminal ⏳`).
+Icons are appended to the end of tab names (e.g., `terminal 🔴`).
 
 ## Pipe Message Format
 
